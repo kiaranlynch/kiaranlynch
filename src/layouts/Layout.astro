@@ -1,0 +1,358 @@
+---
+import LayoutSwitcher from "../components/sitelayout/LayoutSwitcher.astro";
+import FloatingEdit from "../components/sitelayout/FloatingEdit.astro";
+const { title, accent } = Astro.props;
+import { ViewTransitions } from "astro:transitions";
+import { settings } from "../components/helpers/settingsHelper";
+import { getImage } from "astro:assets";
+
+const customCSS = atob(settings.general.customCSS);
+
+const imagePath = settings.general.favicon;
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  "./../../**/*.{jpeg,jpg,png,gif,PNG,JPG,GIF,JPEG,webp,WEBP}"
+);
+
+if (!images[imagePath]) {
+}
+let faviconSrc = "";
+if (images && images[imagePath]) {
+  const fancyImage = await getImage({
+    src: images[imagePath](),
+    width: 180,
+    height: 180,
+    format: "png",
+  });
+  faviconSrc = fancyImage.src;
+}
+
+// generate font stacks
+const fontStacks: { [key: string]: string | { [key: string]: string } } = {
+  "fontStack-default": "sans-serif",
+};
+settings.fonts.fontLibrary.forEach((item, id) => {
+  fontStacks[`fontStack-${id}`] = item.mode.value.fontFamily;
+});
+// console.log(fontStacks);
+
+const fontLinks = Object.values(settings.fonts.fontLibrary)
+  .map((fontObj) => {
+    if (fontObj.mode.discriminant === "remote") {
+      return atob(fontObj.mode.value.htmlLink);
+    } else {
+      return "";
+    }
+  })
+  .join("");
+
+const fontRules: { [key: string]: string } = {};
+
+const fontSpecs = settings.typeOptions;
+const fontSpecSets = Object.entries(fontSpecs);
+fontSpecSets.forEach((pair) => {
+  const fontVars = Object.entries(pair[1]);
+  //pair[0] would be 'h1' or 'p' etc
+  fontVars.forEach((fontVarPair) => {
+    let keyName = pair[0] + "-" + fontVarPair[0];
+    if (fontVarPair[0] === "fontFamily") {
+      const fontID = settings.fonts.fontLibrary.findIndex((item) => {
+        return fontVarPair[1] === item.uniqueID;
+      });
+      const normalizedFontID = fontID === -1 ? "default" : fontID;
+      fontRules[keyName] = `var(--fontStack-${normalizedFontID})`;
+    } else if (fontVarPair[0] === "textDecorationColorProps") {
+      // console.log(fontVarPair[1]);
+      keyName = pair[0] + "-textDecorationColor";
+      switch (fontVarPair[1].discriminant) {
+        case "default":
+          fontRules[keyName] = "default";
+          break;
+        case "accent":
+          fontRules[keyName] = "var(--pageAccentColor)";
+          break;
+        case "custom":
+          const customColor = fontVarPair[1].value;
+          fontRules[keyName] = customColor;
+      }
+      // console.log("colorProps:");
+    } else {
+      // @ts-ignore
+      fontRules[keyName] = fontVarPair[1];
+    }
+  });
+});
+// console.log(fontRules);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Astro description" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href={faviconSrc} />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <ViewTransitions />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <Fragment set:html={fontLinks} />
+    <style
+      define:vars={{
+        maxPageContentWidth: settings.pageArea.pageWidth,
+        standardPadding: settings.pageArea.padding.horizontal,
+        verticalPadding: settings.pageArea.padding.vertical,
+        maxImageWidth: settings.pageArea.images.displayWidth,
+        pageAccentColor: accent,
+      }}
+      is:global
+    >
+      html {
+        margin: auto;
+        padding: 0;
+        line-height: 1.25;
+        font-family: var(--p-fontFamily);
+      }
+
+      img {
+        height: auto;
+        width: 100%;
+      }
+
+      :where(*) {
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+      }
+      main {
+        align-items: center;
+        position: relative;
+        padding-top: var(--verticalPadding);
+        padding-bottom: var(--verticalPadding);
+      }
+      main > * {
+        display: block;
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 0 var(--standardPadding);
+        max-width: var(--maxPageContentWidth);
+        overflow-wrap: break-word;
+      }
+      main ul,
+      main ol {
+        padding: 0 calc(2rem + var(--standardPadding));
+      }
+      ul,
+      li {
+        margin-bottom: 0.5rem;
+        line-height: var(--p-lineHeight);
+      }
+      .md-default-image {
+        max-width: var(--maxImageWidth);
+      }
+    </style>
+
+    <style
+      is:global
+      define:vars={{
+        ...fontStacks,
+        // fontStack1: settings.fonts.font1.fontFamily,
+        // fontStack2: settings.fonts.font2.fontFamily,
+        // fontStack3: settings.fonts.font3.fontFamily,
+        ...fontRules,
+        // rootFontSize: settings.fonts.sizes.rootSize,
+      }}
+    >
+      /* google fonts icon stuff */
+
+      .material-icons,
+      .material-icons-outlined {
+        font-family: "Material Icons";
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px; /* Preferred icon size */
+        display: inline-block;
+        line-height: 1;
+        text-transform: none;
+        letter-spacing: normal;
+        word-wrap: normal;
+        white-space: nowrap;
+        direction: ltr;
+
+        /* Support for all WebKit browsers. */
+        -webkit-font-smoothing: antialiased;
+        /* Support for Safari and Chrome. */
+        text-rendering: optimizeLegibility;
+
+        /* Support for Firefox. */
+        -moz-osx-font-smoothing: grayscale;
+
+        /* Support for IE. */
+        font-feature-settings: "liga";
+      }
+      /* end google fonts icon stuff */
+
+      html {
+        font-size: var(--general-baseFontSizeSm);
+      }
+      @media screen and (min-width: 768px) {
+        html {
+          font-size: var(--general-baseFontSizeLg);
+        }
+      }
+      h1 {
+        font-family: var(--h1-fontFamily);
+        font-size: var(--h1-fontSize);
+        font-weight: var(--h1-fontWeight);
+        font-style: var(--h1-fontStyle);
+        margin-top: var(--h1-marginTop);
+        margin-bottom: var(--h1-marginBottom);
+        color: var(--font-color-override, --h1-color);
+        line-height: var(--h1-lineHeight);
+        text-decoration-line: var(--h1-textDecorationLine);
+        text-decoration-style: var(--h1-textDecorationStyle);
+        text-decoration-thickness: var(--h1-textDecorationThickness);
+        text-decoration-skip-ink: var(--h1-textDecorationSkipInk);
+        text-decoration-color: var(--h1-textDecorationColor);
+      }
+      h2 {
+        font-family: var(--h2-fontFamily);
+        font-size: var(--h2-fontSize);
+        font-weight: var(--h2-fontWeight);
+        font-style: var(--h2-fontStyle);
+
+        margin-top: var(--h2-marginTop);
+        margin-bottom: var(--h2-marginBottom);
+        color: var(--font-color-override, --h2-color);
+        line-height: var(--h2-lineHeight);
+        text-decoration-line: var(--h2-textDecorationLine);
+        text-decoration-style: var(--h2-textDecorationStyle);
+        text-decoration-thickness: var(--h2-textDecorationThickness);
+        text-decoration-skip-ink: var(--h2-textDecorationSkipInk);
+        text-decoration-color: var(--h2-textDecorationColor);
+      }
+      h3 {
+        font-family: var(--h3-fontFamily);
+        font-size: var(--h3-fontSize);
+        font-weight: var(--h3-fontWeight);
+        font-style: var(--h3-fontStyle);
+
+        margin-top: var(--h3-marginTop);
+        margin-bottom: var(--h3-marginBottom);
+        color: var(--font-color-override, --h3-color);
+        line-height: var(--h3-lineHeight);
+
+        text-decoration-line: var(--h3-textDecorationLine);
+        text-decoration-style: var(--h3-textDecorationStyle);
+        text-decoration-thickness: var(--h3-textDecorationThickness);
+        text-decoration-skip-ink: var(--h3-textDecorationSkipInk);
+        text-decoration-color: var(--h3-textDecorationColor);
+      }
+      h4 {
+        font-family: var(--h4-fontFamily);
+        font-size: var(--h4-fontSize);
+        font-weight: var(--h4-fontWeight);
+        font-style: var(--h4-fontStyle);
+
+        margin-top: var(--h4-marginTop);
+        margin-bottom: var(--h4-marginBottom);
+        color: var(--font-color-override, --h4-color);
+        line-height: var(--h4-lineHeight);
+
+        text-decoration-line: var(--h4-textDecorationLine);
+        text-decoration-style: var(--h4-textDecorationStyle);
+        text-decoration-thickness: var(--h4-textDecorationThickness);
+        text-decoration-skip-ink: var(--h4-textDecorationSkipInk);
+        text-decoration-color: var(--h4-textDecorationColor);
+      }
+      h5 {
+        font-family: var(--h5-fontFamily);
+        font-size: var(--h5-fontSize);
+        font-weight: var(--h5-fontWeight);
+        font-style: var(--h5-fontStyle);
+
+        margin-top: var(--h5-marginTop);
+        margin-bottom: var(--h5-marginBottom);
+        color: var(--font-color-override, --h5-color);
+        line-height: var(--h5-lineHeight);
+
+        text-decoration-line: var(--h5-textDecorationLine);
+        text-decoration-style: var(--h5-textDecorationStyle);
+        text-decoration-thickness: var(--h5-textDecorationThickness);
+        text-decoration-skip-ink: var(--h5-textDecorationSkipInk);
+        text-decoration-color: var(--h5-textDecorationColor);
+      }
+      h6 {
+        font-family: var(--h6-fontFamily);
+        font-size: var(--h6-fontSize);
+        font-weight: var(--h6-fontWeight);
+        font-style: var(--h6-fontStyle);
+
+        margin-top: var(--h6-marginTop);
+        margin-bottom: var(--h6-marginBottom);
+        color: var(--font-color-override, --h6-color);
+        line-height: var(--h6-lineHeight);
+
+        text-decoration-line: var(--h6-textDecorationLine);
+        text-decoration-style: var(--h6-textDecorationStyle);
+        text-decoration-thickness: var(--h6-textDecorationThickness);
+        text-decoration-skip-ink: var(--h6-textDecorationSkipInk);
+        text-decoration-color: var(--h6-textDecorationColor);
+      }
+
+      p {
+        font-family: var(--p-fontFamily);
+        font-size: var(--p-fontSize);
+        font-weight: var(--p-fontWeight);
+        font-style: var(--p-fontStyle);
+
+        margin-top: var(--p-marginTop);
+        margin-bottom: var(--p-marginBottom);
+        color: var(--font-color-override, --p-color);
+        line-height: var(--p-lineHeight);
+
+        text-decoration-line: var(--p-textDecorationLine);
+        text-decoration-style: var(--p-textDecorationStyle);
+        text-decoration-thickness: var(--p-textDecorationThickness);
+        text-decoration-skip-ink: var(--p-textDecorationSkipInk);
+        text-decoration-color: var(--p-textDecorationColor);
+      }
+      .unstyled-link {
+        text-decoration: none;
+      }
+      .unstyled-link:visited {
+        color: initial;
+      }
+      *:first-child {
+        margin-top: 0;
+      }
+      *:last-child {
+        margin-bottom: 0;
+      }
+    </style>
+  </head>
+
+  <LayoutSwitcher>
+    <FloatingEdit />
+    <slot />
+  </LayoutSwitcher>
+
+  <script>
+    import AOS from "aos";
+    import "aos/dist/aos.css"; // You can also use <link> for styles
+    // ..
+
+    document.addEventListener("astro:page-load", () => {
+      document.querySelectorAll("main > *").forEach((item) => {
+        item.setAttribute("data-aos", "fade-in");
+        AOS.init({ offset: 0, delay: 50 });
+      });
+    });
+
+    AOS.init();
+  </script>
+  <style set:html={customCSS}></style>
+</html>
